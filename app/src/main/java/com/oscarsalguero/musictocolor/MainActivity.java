@@ -12,8 +12,8 @@
 package com.oscarsalguero.musictocolor;
 
 import android.Manifest;
+import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.content.res.AssetFileDescriptor;
 import android.graphics.Color;
 import android.media.AudioManager;
@@ -22,6 +22,9 @@ import android.media.audiofx.Equalizer;
 import android.media.audiofx.Visualizer;
 import android.net.Uri;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
+import android.support.annotation.StringRes;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.Gravity;
@@ -37,10 +40,18 @@ import com.oscarsalguero.musictocolor.view.VisualizerView;
 
 import java.util.Random;
 
+import permissions.dispatcher.NeedsPermission;
+import permissions.dispatcher.OnNeverAskAgain;
+import permissions.dispatcher.OnPermissionDenied;
+import permissions.dispatcher.OnShowRationale;
+import permissions.dispatcher.PermissionRequest;
+import permissions.dispatcher.RuntimePermissions;
+
 /**
  * Demonstrates how to get colors from music using the {@link Visualizer} class.
  * Created by RacZo on 9/2/15.
  */
+@RuntimePermissions
 public class MainActivity extends AppCompatActivity {
 
     private static final String LOG_TAG = MainActivity.class.getName();
@@ -79,7 +90,6 @@ public class MainActivity extends AppCompatActivity {
             Manifest.permission.MODIFY_AUDIO_SETTINGS};
 
 
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -96,10 +106,9 @@ public class MainActivity extends AppCompatActivity {
         // Creating the MediaPlayer object
         mMediaPlayer = new MediaPlayer();
 
-        setupUI();
-
-        initializeMediaPlayer();
+        MainActivityPermissionsDispatcher.useVisualizerWithCheck(this);
     }
+
 
     @Override
     protected void onResume() {
@@ -155,39 +164,6 @@ public class MainActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
-    @Override
-    public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
-        switch (requestCode) {
-            case REQUEST_STORAGE: {
-                // If request is cancelled, the result arrays are empty.
-                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-
-                    // permission was granted, yay! Do the
-                    // contacts-related task you need to do.
-
-                } else {
-
-                    // permission denied, boo! Disable the
-                    // functionality that depends on this permission.
-                }
-                return;
-            }
-            case REQUEST_MIC: {
-                // If request is cancelled, the result arrays are empty.
-                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-
-                    // permission was granted, yay! Do the
-                    // contacts-related task you need to do.
-
-                } else {
-
-                    // permission denied, boo! Disable the
-                    // functionality that depends on this permission.
-                }
-                return;
-            }
-        }
-    }
 
     /**
      * Sets up the visualizer and creates the equalizer controls
@@ -202,7 +178,7 @@ public class MainActivity extends AppCompatActivity {
         mWaveformLayout.addView(mVisualizerView);
 
         // Create the Visualizer object and attach it to our media player.
-        mVisualizer = new Visualizer(mMediaPlayer.getAudioSessionId());
+        mVisualizer = new Visualizer(mMediaPlayer.getAudioSessionId());//error
         mVisualizer.setCaptureSize(Visualizer.getCaptureSizeRange()[1]);
         mVisualizer.setDataCaptureListener(new Visualizer.OnDataCaptureListener() {
 
@@ -365,5 +341,52 @@ public class MainActivity extends AppCompatActivity {
             Log.e(LOG_TAG, "An error has occurred while updating the color", e);
         }
     }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        MainActivityPermissionsDispatcher.onRequestPermissionsResult(this, requestCode, grantResults);
+    }
+
+    @NeedsPermission(Manifest.permission.RECORD_AUDIO)
+    void useVisualizer() {
+        setupUI();
+        initializeMediaPlayer();
+    }
+
+    @OnShowRationale(Manifest.permission.RECORD_AUDIO)
+    void showRationaleForRecord(final PermissionRequest request) {
+        showRationaleDialog(R.string.permission_record_rationale, request);
+    }
+
+    @OnPermissionDenied(Manifest.permission.RECORD_AUDIO)
+    void showDeniedForCamera() {
+        Toast.makeText(this, R.string.permission_record_denied, Toast.LENGTH_SHORT).show();
+    }
+
+    @OnNeverAskAgain(Manifest.permission.RECORD_AUDIO)
+    void showNeverAskForCamera() {
+        Toast.makeText(this, R.string.permission_record_neverask, Toast.LENGTH_SHORT).show();
+    }
+
+    private void showRationaleDialog(@StringRes int messageRestId, final PermissionRequest request) {
+        new AlertDialog.Builder(this)
+                .setPositiveButton("allow", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        request.proceed();
+                    }
+                })
+                .setNegativeButton("deny", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        request.cancel();
+                    }
+                })
+                .setCancelable(false)
+                .setMessage(messageRestId)
+                .show();
+    }
+
 
 }
