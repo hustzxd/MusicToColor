@@ -38,6 +38,7 @@ import android.widget.Toast;
 
 import com.oscarsalguero.musictocolor.view.VisualizerView;
 
+import java.io.IOException;
 import java.util.Random;
 
 import permissions.dispatcher.NeedsPermission;
@@ -67,6 +68,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String SPACE = " ";
     private static final float VISUALIZER_HEIGHT_DIP = 56;
 
+    private String mMusic = null;
     /**
      * Id to identify a mic permission request.
      */
@@ -94,6 +96,11 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        Intent intent = getIntent();
+        mMusic = intent.getStringExtra("music");
+        Toast.makeText(getApplicationContext(), mMusic, Toast.LENGTH_LONG).show();
+
 
         mWaveformLayout = (LinearLayout) findViewById(R.id.layout_waveform);
 
@@ -154,10 +161,10 @@ public class MainActivity extends AppCompatActivity {
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
         switch (id) {
-            case R.id.action_about:
-                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(getString(R.string.git_hub_repo_url)));
+            case R.id.action_select_music:
+                Intent intent = new Intent(getApplicationContext(), SelectMusicActivity.class);
                 startActivity(intent);
-                break;
+                MainActivity.this.finish();
             default:
                 break;
         }
@@ -295,19 +302,30 @@ public class MainActivity extends AppCompatActivity {
      */
     private void initializeMediaPlayer() {
         setVolumeControlStream(AudioManager.STREAM_MUSIC);
-        AssetFileDescriptor assetFileDescriptor = null;
-        try {
-            assetFileDescriptor = getAssets().openFd("dbz.mp3");
+        if (mMusic == null || "".equals(mMusic)) {
+            AssetFileDescriptor assetFileDescriptor = null;
+            try {
+                assetFileDescriptor = getAssets().openFd("dbz.mp3");
 
-            mMediaPlayer.setDataSource(
-                    assetFileDescriptor.getFileDescriptor(),
-                    assetFileDescriptor.getStartOffset(),
-                    assetFileDescriptor.getLength());
-            mMediaPlayer.prepare();
-            mMediaPlayer.start();
+                mMediaPlayer.setDataSource(
+                        assetFileDescriptor.getFileDescriptor(),
+                        assetFileDescriptor.getStartOffset(),
+                        assetFileDescriptor.getLength());
+                mMediaPlayer.prepare();
+                mMediaPlayer.start();
 
-        } catch (Exception e) {
-            Log.e(LOG_TAG, "An error has occurred while setting up MediaPlayer", e);
+            } catch (Exception e) {
+                Log.e(LOG_TAG, "An error has occurred while setting up MediaPlayer", e);
+            }
+        } else {
+            try {
+                mMediaPlayer.reset();
+                mMediaPlayer.setDataSource(mMusic);
+                mMediaPlayer.prepare();
+                mMediaPlayer.start();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
 
         Log.d(LOG_TAG, "MediaPlayer audio session ID: " + mMediaPlayer.getAudioSessionId());
@@ -348,23 +366,23 @@ public class MainActivity extends AppCompatActivity {
         MainActivityPermissionsDispatcher.onRequestPermissionsResult(this, requestCode, grantResults);
     }
 
-    @NeedsPermission(Manifest.permission.RECORD_AUDIO)
+    @NeedsPermission(Manifest.permission.READ_EXTERNAL_STORAGE)
     void useVisualizer() {
         setupUI();
         initializeMediaPlayer();
     }
 
-    @OnShowRationale(Manifest.permission.RECORD_AUDIO)
+    @OnShowRationale(Manifest.permission.READ_EXTERNAL_STORAGE)
     void showRationaleForRecord(final PermissionRequest request) {
         showRationaleDialog(R.string.permission_record_rationale, request);
     }
 
-    @OnPermissionDenied(Manifest.permission.RECORD_AUDIO)
+    @OnPermissionDenied(Manifest.permission.READ_EXTERNAL_STORAGE)
     void showDeniedForCamera() {
         Toast.makeText(this, R.string.permission_record_denied, Toast.LENGTH_SHORT).show();
     }
 
-    @OnNeverAskAgain(Manifest.permission.RECORD_AUDIO)
+    @OnNeverAskAgain(Manifest.permission.READ_EXTERNAL_STORAGE)
     void showNeverAskForCamera() {
         Toast.makeText(this, R.string.permission_record_neverask, Toast.LENGTH_SHORT).show();
     }
